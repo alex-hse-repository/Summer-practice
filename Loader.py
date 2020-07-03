@@ -5,6 +5,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from bs4 import BeautifulSoup
 import base64
+import pandas as pd
 
 
 def Authorize():
@@ -116,7 +117,7 @@ def pack_message(msg,full = False):
 def save_message(msg,full = False):
     id = GetID(msg)
     msg_data = pack_message(msg,full)
-    with open('mail_{}'.format(id),'wb') as file:
+    with open('mails/mail_{}'.format(id),'wb') as file:
         pickle.dump(msg_data,file)
     
 def save_all(service,message_list,full = False):
@@ -126,13 +127,27 @@ def save_all(service,message_list,full = False):
         
 def load_message(service,id):
     msg_data = None
-    if os.path.exists('mail_{}'.format(id)):
-        with open('mail_{}'.format(id),'rb') as file:
-            msg_data = pickle.load(file)
-    else:
+    if not os.path.exists('mails/mail_{}'.format(id)):
         msg = GetMessage(service, id)
-        msg_data = pack_message(msg)            
+        save_message(msg)
+    with open('mails/mail_{}'.format(id),'rb') as file:
+        msg_data = pickle.load(file)
     return msg_data 
-
+def load_all():
+    data = pd.DataFrame()
+    os.chdir('mails')
+    for mail in os.listdir('.'):
+        with open(mail,'rb') as file:
+            cur_mail = pickle.load(file)
+            data = data.append(cur_mail,ignore_index = True)
+    return data        
+def load_from_gmail():
+    service = Authorize()
+    message_list = ListMessages(service)
+    data = pd.DataFrame()
+    for msg in message_list:
+        message = load_message(service,msg['id'])
+        data = data.append(message,ignore_index = True)
+    return data    
     
     
