@@ -1,15 +1,21 @@
+import base64
+
 def GetSnippet(msg):
     return msg['snippet']
 
-def GetLabels(msg):
-    return msg['labelIds']
+def GetLabel(msg,user_label_ids):
+    '''Получает лэйбл пиьма, подразумевается что он один(можно в последствии сделать несколько)'''
+    for label_id in user_label_ids:
+        if(label_id in msg['labelIds']):
+            return label_id
+    return None
 
 def GetID(msg):
     return msg['id']
 
 def GetSubject(msg):
     headers = msg['payload']['headers']
-    subject = 'Unknon'# Specail constant 
+    subject = None 
     for header in headers:
         if(header['name'] == 'Subject'):
             subject = header['value']
@@ -17,41 +23,48 @@ def GetSubject(msg):
 
 def getSender(msg):
     headers = msg['payload']['headers']
-    sender = 'Unknon'# Specail constant 
+    sender = None 
     for header in headers:
         if(header['name'] == 'From'):
             sender = header['value']
     return sender 
                
-def pack_message(msg,miem_msg):
+def pack_message(msg,user_label_ids):
     id = GetID(msg)
-    labels = GetLabels(msg)
+    label = GetLabel(msg,user_label_ids)
     snippet = GetSnippet(msg)
     sender = getSender(msg)
     subject = GetSubject(msg)
-    raw = miem_msg
-    msg_data = {'id' : id,'snippet' : snippet,'labels':labels,'sender':sender,'subject':subject,'raw':raw}
+    parsed_msg = parse_msg(msg)
+    msg_data = {'id' : id,'snippet' : snippet,'label':label,
+                'sender':sender,'subject':subject,'text':parsed_msg},
+    
     return msg_data
 
 def parse_msg(msg):
-    '''Return text(plain and html) content of msg'''
+    content = []
+    payload = msg['payload']
+    if(payload['mimeType']=='multipart/alternative'):
+        for part in payload['parts']:
+            if(part['mimeType'] == 'text/plain'):
+                content.append(data_encoder(part['body']['data']))      
+    else:
+        if(payload['mimeType']=='text/plain'):
+            content.append(data_encoder(payload['body']['data']))
+    return ''.join(content)
     
-    content = {'text':[],'html':[]}
-    for part in msg.walk():
-        if(part.is_multipart()):
-            continue
-        else:
-            content_type = part.get_content_type()
-            text = part.get_payload()
-            if(content_type == 'text/plain'):
-                content['text'].append(text)
-            elif(content_type == 'text/html'):
-                content['html'].append(text)            
-    return content  
+def data_encoder(text):
+    #TODO:посмотреть что там с кодировкой
+    message = base64.urlsafe_b64decode(text)
+    message = str(message, 'utf-8')
+    return message
 
-def CreateMsgLabels(labelIds):
+
+def CreateMsgLabels(msg_ids,label_ids):
   """Create object to update labels.
   Returns:
     A label update object.
   """
-  return {'removeLabelIds': [], 'addLabelIds': labelIds}
+  return {'removeLabelIds': [], 'addLabelIds': label_ids,'ids':msg_ids}
+
+
