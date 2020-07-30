@@ -1,51 +1,176 @@
+import numpy as np
 import nltk
+import re
 from nltk.corpus import stopwords
-from nltk.stem import PorterStemmer,WordNetLemmatizer
-import pandas as pd
+from nltk.stem import SnowballStemmer
+import string
+#Note: Uncomment to first time usage
 #nltk.download('punkt')
 #nltk.download('wordnet')
 #nltk.download('stopwords')
-def clean_labels(labels):
-    ignore = ['UNREAD','INBOX','IMPORTANT']
-    label = [label for label in labels if label not in ignore]
-    #Костыль
-    if(len(label)==0):
-        return 'CATEGORY_UPDATES'
-    return label[0]
+np.random.seed(42)
+
+def pack(data):
+    """
+    Perform data preprocessing and add some features.
+
+    Parameters
+    ----------
+    data : DataFrame with Messages.
+   
+    """
+    data['length'] = [len(text) for text in data['text']] 
+    data['longest_word_len'] =  [longest_word_len(text) for text in data['text']] 
+    data['mean_word_len'] = [mean_word_len(text) for text in data['text']] 
+    data['subject_len'] = [len(subject) for subject in data['subject']]
+    data['stop_words_num'] = [stop_words_count(text) for text in data['text']]
+    data['pounctuation_num'] = [punctuation_count(text) for text in data['text']]
+    data['text'] = [clean_text(text) for text in data['text']]
+    
 def clean_text(text):
+    """
+    Perform text normalisation.
+
+    Parameters
+    ----------
+    text : Text.
+
+    Returns
+    -------
+    Normalized Text.
+
+    """
     words = tokenization(text)
-    words = clean(words)
     words = lowercasing(words)
-    words = remove_stop_words(words)
+    words = clean(words)
     words = stemming(words)
-    #words = lemmatisation(words)
     return ' '.join(words)
 
-def pack_data(dataframe):
-    data = dataframe[['text','labels']]
-    data['labels'] = [clean_labels(labels) for labels in data['labels']]
-    data['text'] = [clean_text(text) for text in data['text']] 
-    return data                 
+def longest_word_len(text):
+    """
+    Find length of the longest word in text.
+
+    Parameters
+    ----------
+    text : Text.
+    
+    Returns
+    -------
+    Length of the longest word.
+
+    """
+    return np.max(np.array([len(word) for word in tokenization(text)]))
+
+def mean_word_len(text):
+    """
+    Find mean length of word in text.
+
+    Parameters
+    ----------
+    text : Text.
+    
+    Returns
+    -------
+    Mean length of word.
+
+    """
+    return np.mean(np.array([len(word) for word in tokenization(text)]))  
+  
+def punctuation_count(text):
+    """
+    Count the number of punctuations.
+
+    Parameters
+    ----------
+    text : Text.
+    
+    Returns
+    -------
+    Number of punctuations.
+
+    """
+    return sum([1 if text[i] in string.punctuation else 0 for i in range(len(text))])
+
+def stop_words_count(text):
+    """
+    Count the number of stop-words in text.
+
+    Parameters
+    ----------
+    text : Text.
+    
+    Returns
+    -------
+    Number of stop-words.
+
+    """
+    words = tokenization(text)
+    stop_words = stopwords.words('english')
+    return len([word for word in words if word not in stop_words])
     
 def clean(words):
-    #TODO
-    return words
+    """
+    Remove non-literal symbols from tokenized text.
+    
+    Parameters
+    ----------
+    words : List of words.
+    
+    Returns
+    -------
+    tockens: List of processed words.
+    """
+    tokens = []
+    try:
+        for token in words:
+            token = re.sub(r'[\W\d_]', " ", token)
+            tokens.append(token)
+    except:
+        token = ""
+        tokens.append(token)
+    
+    return tokens
+
     
 def lowercasing(words):
+    """
+    Lowercase words.
+
+    Parameters
+    ----------
+    words : List of words.
+
+    Returns
+    -------
+    List of lowercased words.
+    """
     return [word.lower() for word in words]
 
 def tokenization(text):
+    """
+    Tokenize Text.
+
+    Parameters
+    ----------
+    text : Text.
+    
+    Returns
+    -------
+    Tokenized Text.
+    """
     return nltk.word_tokenize(text)
 
-def remove_stop_words(words):
-    stop_words = stopwords.words('english')
-    return [word for word in words if word not in stop_words]
-
 def stemming(words):
-    stemmer = PorterStemmer()
-    return [stemmer.stem(word) for word in words]
+    """
+    Perform stemming.
 
-def lemmatisation(words):
-    lemmatizer = WordNetLemmatizer()
-    return [lemmatizer.lemmatize(word) for word in words]
-    
+    Parameters
+    ----------
+    words : List of words.
+
+    Returns
+    -------
+    List of stemmed words.
+    """
+    stemmer = SnowballStemmer('english')
+    return [stemmer.stem(word) for word in words]
